@@ -12,6 +12,7 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
+import numpy as np
 
 
 def _repair_chronos2_load(model, model_id: str) -> None:
@@ -70,6 +71,7 @@ class Chronos2TSEncoder(nn.Module):
         multi_variable: bool = False,
         max_patches: int | None = None,
         trained_patches: int | None = None,
+        disable_context_length_limit: bool = False,
         **kwargs,
     ):
         try:
@@ -85,6 +87,13 @@ class Chronos2TSEncoder(nn.Module):
         self.dropout = dropout
 
         self.chronos_model = Chronos2Model.from_pretrained(model_id)
+        
+        if disable_context_length_limit:
+            # Chronos-2's context length is hard-coded to 8192 in the config. 
+            # To allow for longer inputs, we set the context length to infinity. 
+            # Note that this may lead to increased memory usage and slower inference times for very long sequences.
+            self.chronos_model.chronos_config.context_length = np.inf
+        
         _repair_chronos2_load(self.chronos_model, model_id)
         self.output_dim = self.chronos_model.config.d_model
         self.multi_variable = multi_variable
